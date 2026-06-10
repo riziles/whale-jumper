@@ -8,6 +8,10 @@
 	let keys: Record<string, boolean> = {};
 	let score = 0;
 	let gameWon = false;
+	let isMobile = false;
+	let mLeft = false;
+	let mRight = false;
+	let mJump = false;
 	let confettiParticles: { x: number; y: number; vx: number; vy: number; color: string; life: number; size: number }[] = [];
 
 	// --- Game dimensions ---
@@ -236,11 +240,11 @@
 		}
 
 		// Input
-		if (keys['ArrowLeft'] || keys['KeyA']) player.vx = -MOVE_SPEED;
-		else if (keys['ArrowRight'] || keys['KeyD']) player.vx = MOVE_SPEED;
+		if (keys['ArrowLeft'] || keys['KeyA'] || mLeft) player.vx = -MOVE_SPEED;
+		else if (keys['ArrowRight'] || keys['KeyD'] || mRight) player.vx = MOVE_SPEED;
 		else player.vx *= 0.7;
 
-		if ((keys['ArrowUp'] || keys['Space'] || keys['KeyW']) && player.grounded) {
+		if ((keys['ArrowUp'] || keys['Space'] || keys['KeyW'] || mJump) && player.grounded) {
 			player.vy = JUMP_FORCE;
 		}
 
@@ -320,7 +324,9 @@
 		c.fillStyle = '#FFFFFF';
 		c.font = 'bold 20px monospace';
 		c.fillText(`⭐ ${score}`, 20, 36);
-		c.fillText('Arrow keys / WASD to move  |  Space / Up to jump', 20, H - 20);
+		if (!isMobile) {
+			c.fillText('Arrow keys / WASD to move  |  Space / Up to jump', 20, H - 20);
+		}
 	}
 
 	function gameLoop() {
@@ -333,12 +339,24 @@
 	function keyUp(e: KeyboardEvent) { keys[e.code] = false; e.preventDefault(); }
 
 	onMount(() => {
+		isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 		ctx = canvas.getContext('2d')!;
 		(window as any).__ctx = ctx;
 		window.addEventListener('keydown', keyDown);
 		window.addEventListener('keyup', keyUp);
 		animFrame = requestAnimationFrame(gameLoop);
 	});
+
+	function btnDown(dir: string) {
+		if (dir === 'left') mLeft = true;
+		if (dir === 'right') mRight = true;
+		if (dir === 'jump') mJump = true;
+	}
+	function btnUp(dir: string) {
+		if (dir === 'left') mLeft = false;
+		if (dir === 'right') mRight = false;
+		if (dir === 'jump') mJump = false;
+	}
 
 	onDestroy(() => {
 		if (!browser) return;
@@ -350,13 +368,39 @@
 
 <svelte:head>
 	<title>DeepSeek Whale Platformer</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
 	<style>
-		body { margin: 0; background: #0F172A; overflow: hidden; }
+		body { margin: 0; background: #0F172A; overflow: hidden; touch-action: manipulation; }
 	</style>
 </svelte:head>
 
 <div class="game-container">
 	<canvas bind:this={canvas} width={960} height={640}></canvas>
+
+	{#if isMobile}
+		<div class="mobile-controls">
+			<div class="controls-left">
+				<button
+					on:pointerdown={() => btnDown('left')}
+					on:pointerup={() => btnUp('left')}
+					on:pointerleave={() => btnUp('left')}
+					class="ctrl-btn"
+				>◀</button>
+				<button
+					on:pointerdown={() => btnDown('right')}
+					on:pointerup={() => btnUp('right')}
+					on:pointerleave={() => btnUp('right')}
+					class="ctrl-btn"
+				>▶</button>
+			</div>
+			<button
+				on:pointerdown={() => btnDown('jump')}
+				on:pointerup={() => btnUp('jump')}
+				on:pointerleave={() => btnUp('jump')}
+				class="ctrl-btn jump-btn"
+			>▲</button>
+		</div>
+	{/if}
 
 	{#if gameWon}
 		<div class="modal-overlay">
@@ -374,6 +418,7 @@
 <style>
 	.game-container {
 		display: flex;
+		flex-direction: column;
 		justify-content: center;
 		align-items: center;
 		width: 100vw;
@@ -385,6 +430,54 @@
 		border: 2px solid #334155;
 		border-radius: 8px;
 		image-rendering: pixelated;
+		max-width: 100vw;
+		max-height: calc(100vh - 100px);
+		width: auto;
+		height: auto;
+	}
+
+	.mobile-controls {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		width: 100%;
+		max-width: 900px;
+		padding: 8px 16px;
+		box-sizing: border-box;
+	}
+
+	.controls-left {
+		display: flex;
+		gap: 12px;
+	}
+
+	.ctrl-btn {
+		width: 64px;
+		height: 64px;
+		border-radius: 16px;
+		border: 2px solid #475569;
+		background: rgba(30, 41, 59, 0.85);
+		color: #E2E8F0;
+		font-size: 28px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		touch-action: manipulation;
+		-webkit-tap-highlight-color: transparent;
+		user-select: none;
+		transition: background 0.1s;
+	}
+
+	.ctrl-btn:active {
+		background: rgba(99, 102, 241, 0.6);
+		border-color: #818CF8;
+	}
+
+	.jump-btn {
+		width: 80px;
+		height: 80px;
+		font-size: 36px;
 	}
 
 	.modal-overlay {
